@@ -1,0 +1,1153 @@
+/* ─── Emilia Małecka · Portfolio · v4 — full-bleed cinematic ─── */
+
+:root{
+  --ink:        #0c0f0a;
+  --ink-soft:   #2a2d24;
+  --ink-green:  #1a2f20;
+  --paper:      #f5efde;
+  --parchment:  #ece1c5;
+  --rule:       #c9b894;
+  --green:      #1f3a2a;
+  --green-2:    #2c5239;
+  --gold:       #c69449;
+  --gold-soft:  #e7c98a;
+  --muted:      #6b6a5e;
+}
+
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:#0e1410;color:var(--ink);font-family:'Inter',system-ui,sans-serif}
+
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
+a{color:inherit;text-decoration:none}
+
+#root,.world{position:fixed;inset:0;overflow:hidden}
+.world.screen-home{overflow-y:auto;scrollbar-width:none;}
+.world.screen-home::-webkit-scrollbar{display:none;}
+
+
+/* ─── full-bleed cinematic stage ─── */
+.scene{
+  position:absolute;inset:0;
+  opacity:0;visibility:hidden;
+  transition:opacity 400ms ease,
+             transform 420ms ease,
+             filter 400ms ease,
+             visibility 0s linear 420ms;
+  z-index:1;
+}
+.scene.active{
+  opacity:1;visibility:visible;
+  transition-delay:0s,0s,0s,0s;
+  z-index:2;
+}
+/* gentle parallax on entry — feels like walking deeper */
+.scene[data-pos="home"]{ transform: scale(1.04) translate3d(0, 1.2%, 0); filter: brightness(.85) saturate(.95);}
+.scene[data-pos="map"] { transform: scale(.97)  translate3d(-1.5%, 0, 0); filter: brightness(.85) saturate(.95);}
+.scene.active{transform:none;filter:none}
+
+.scene.dim{filter:blur(8px) brightness(.55) saturate(.85);transform:scale(1.03);visibility:visible;opacity:1;z-index:1}
+
+/* full-viewport painting — no frames, no letterbox */
+.illo{
+  position:absolute;inset:0;
+  background-position: center center;
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+/* home scene background removed — replaced by HomeSceneLayers */
+/* .illo[data-img="home"]{background-image:url('assets/scene-home.png')} */
+.illo[data-img="map"]{ background-image:url('assets/scene-map13.png?v=2')}
+
+/* ═══════════════════════════════════════════════════════════
+   HOME SCENE — warstwy assetów (zamiast jednego tła)
+   Każda warstwa fullscreen, object-fit:cover, bez luk.
+   isolation:isolate tworzy osobny stacking context —
+   wewnętrzne z-indeksy (1–8) nie kolidują z nakładkami
+   (chmury z:2, kwiaty z:9, hero-text z:10, signpost z:11).
+══════════════════════════════════════════════════════════ */
+.home-scene-layers {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  isolation: isolate;       /* zamknięty stacking context dla warstw */
+}
+
+/* Szablon każdej warstwy: fullscreen cover, bez przerw */
+.scene-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center center;
+  display: block;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Z-indeksy */
+.scene-layer.sl-niebo  { z-index: 1; }
+.scene-layer.sl-tlo    { z-index: 2; object-fit: cover; object-position: center center; }
+
+/* Wideo tło — zastępuje sl-niebo + sl-tlo */
+.scene-layer.sl-tlo-video {
+  z-index: 1;
+  object-fit: cover;
+  object-position: center center;
+}
+.scene-layer.sl-postac {
+  z-index: 3;
+  object-fit: contain;
+  object-position: 58% 84%;
+  transform: translateY(13%) scale(1.10);
+  transform-origin: center bottom;
+}
+
+/* ══════════════════════════════════════════════════════
+   HAND LAYER — reka-full.png jako osobna warstwa animacji.
+   Postać (postac-no-arm.png) jest absolutnie statyczna.
+   Tylko ten element się rusza. Zero warpingu / morphingu.
+══════════════════════════════════════════════════════ */
+
+/*
+ * Wrapper — identyczny transform co .sl-postac, dzięki czemu
+ * reka-full.png (ta sama rozdzielczość 1920×2443) ląduje pixel-perfect
+ * w tym samym układzie współrzędnych co postać.
+ */
+.hand-pos-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  transform: translateY(13%) scale(1.10);
+}
+
+/*
+ * Sam asset dłoni — reka-full.png jest pełnoformatowym canvas (1920×2443)
+ * z dłonią umieszczoną dokładnie tam, gdzie była w postac-glowna.png.
+ * object-fit/position identyczne z .sl-postac → idealne wyrównanie.
+ *
+ * transform-origin = łokieć/nadgarstek:
+ *   W przestrzeni obrazu 1920×2443 wrist bottom jest na ~27.6% X, ~40.5% Y.
+ *   W przestrzeni viewportu (1920×1080) przekłada się to na ~44% X, ~40% Y.
+ *   Pivot jest tu, reszta ramienia jest statyczna (zasłonięta przez postac-no-arm).
+ *
+ * Rotacja DODATNIA = zgodnie z wskazówkami zegara = dłoń idzie w prawo / ku twarzy.
+ * Zakres 10°, pętla 2.5 s, easing in-out.
+ */
+.hand-anim-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: 58% 84%;
+  transform-origin: 44% 40%;
+  animation: handWave 2.5s ease-in-out infinite;
+}
+
+@keyframes handWave {
+  0%,  100% { transform: rotate(0deg);  }
+  40%        { transform: rotate(10deg); }
+  70%        { transform: rotate(5deg);  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hand-anim-img { animation: none; }
+}
+
+/* ─── chrome (brand + lang) — floating, no container ─── */
+.chrome{position:absolute;inset:0;pointer-events:none;z-index:50}
+.chrome > *{pointer-events:auto}
+
+.brand{
+  position:absolute;top:28px;left:46px;
+  display:flex;align-items:center;gap:0;
+  background: rgba(232,232,228,.82);
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  border:1px solid rgba(255,255,255,.65);
+  border-radius:20px;
+  padding:9px 20px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.14);
+  width:auto;height:auto;
+  cursor:pointer;
+}
+.brand-name{
+  font-family:'Inter',sans-serif;
+  font-size:13px;font-weight:700;
+  letter-spacing:.04em;
+  color:#0a0a0a;
+  white-space:nowrap;
+}
+.brand-role{
+  font-family:'Inter',sans-serif;
+  font-size:11px;font-weight:400;
+  letter-spacing:.06em;
+  color:#0a0a0a;
+  opacity:.65;
+  white-space:nowrap;
+  border-left:1px solid rgba(0,0,0,.2);
+  padding-left:8px;
+  margin-left:8px;
+}
+.brand-board{
+  position:absolute;
+  width:270px;
+  height:auto;
+  top:50%;left:50%;
+  /* shift so board centre (≈55% from left, ≈48% from top of PNG) aligns with button centre */
+  transform:translate(-55%,-48%);
+  pointer-events:none;
+  z-index:0;
+}
+.brand .role{ display:none }
+.brand .name{
+  position:relative;z-index:1;
+  margin-top:0;
+  font-family:'Cormorant Garamond',serif;font-weight:500;
+  font-size:15px;letter-spacing:.16em;text-transform:none;
+  color:#f2e8d4;
+  text-shadow:0 1px 4px rgba(8,2,0,.70);
+  /* nudge right to stay over the board (flowers occupy left side of PNG) */
+  transform:translateX(14px);
+}
+
+.lang{
+  position:absolute;top:32px;right:46px;
+  display:flex;gap:0;align-items:center;
+  font-size:12px;letter-spacing:.10em;font-weight:600;
+  font-family:'Inter',sans-serif;
+  background: rgba(232,232,228,.82);
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  border:1px solid rgba(255,255,255,.65);
+  border-radius:20px;
+  padding:5px 14px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.14);
+  color:#3a2e18;
+  text-shadow: none;
+}
+.lang button{padding:3px 6px;opacity:.55;transition:opacity .25s, color .25s;color:#3a2e18;text-shadow:none;}
+.lang button.on{opacity:1;color:#1f3a2a;font-weight:700;}
+.lang button:hover{opacity:.85}
+.lang .dot{opacity:.35;color:#3a2e18;}
+
+/* ─── home: hero text — natural part of world, no card ─── */
+.hero-text{
+  position:absolute;left:11.5%;top:16%;max-width:46%;color:var(--ink);z-index:10;
+  animation: rise 1400ms cubic-bezier(.2,.8,.2,1) both;
+  animation-delay: 350ms;
+}
+.hero-text h1{
+  font-family:'Cormorant Garamond',serif;
+  font-size:clamp(54px, 6.6vw, 122px);
+  font-weight:600;line-height:.96;letter-spacing:-.015em;margin:0;
+  text-shadow: 0 1px 0 rgba(255,250,230,.5), 0 0 30px rgba(255,250,230,.35);
+}
+.hero-text h1 .head1{ color:var(--ink); display:block }
+.hero-text h1 em{ display:block;font-style:italic;color:var(--green);font-weight:500 }
+.hero-text .sub{
+  margin-top:24px;font-size:16px;color:#f3e3bf;letter-spacing:.005em;line-height:1.65;
+  max-width:38ch;font-weight:500;
+  text-shadow: 0 1px 2px rgba(40,22,8,.7), 0 0 14px rgba(0,0,0,.35);
+}
+.hero-text .hero-tags{
+  margin-top:calc(10px + 1.5vh);
+  margin-left:1%;
+  font-family:'Inter',sans-serif;
+  font-size:13px;
+  font-weight:500;
+  letter-spacing:.08em;
+  color:rgba(30,28,24,.72);
+  text-shadow:none;
+}
+.hero-text .tag-word{ color:rgba(15,12,8,.88); }
+.hero-text .tag-dot{ color:rgba(30,28,24,.72); }
+.hero-text .compass{
+  margin-top:28px;display:inline-flex;align-items:center;gap:12px;
+  font-size:11px;letter-spacing:.32em;text-transform:uppercase;color:#5a5648;font-weight:600;
+  text-shadow:0 1px 0 rgba(255,250,230,.5);
+}
+.hero-text .compass::before{content:"";width:42px;height:1px;background:#7a6a3a}
+
+@keyframes rise {
+  from { opacity:0; transform: translateY(14px) }
+  to   { opacity:1; transform: translateY(0) }
+}
+
+/* ─── home: signpost HTML labels over clean asset ─── */
+.signpost-overlay{position:absolute;inset:0;z-index:11;pointer-events:none}
+.sign{
+  position:absolute;pointer-events:auto;
+  cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  padding-left:4.5vw;padding-right:0;padding-bottom:28px;
+  border-radius:4px;
+  outline-offset:-4px;
+  transition:filter .3s ease, transform .3s ease;
+}
+.sign:focus-visible{
+  outline:2px solid rgba(231,201,138,.7);
+}
+.sign:hover{
+  transform:scale(1.03);
+}
+.sign-label{
+  font-family:'Cinzel','Cormorant Garamond',serif;
+  font-weight:400;
+  font-size:clamp(13px,1.58vw,26.5px);
+  letter-spacing:.06em;
+  color:#f3e3bf;
+  text-transform:lowercase;
+  position:relative;
+  text-shadow:
+    0 1px 5px rgba(18,7,2,.92),
+    0 0 10px rgba(230,180,70,.18),
+    0 0 24px rgba(210,150,40,.08);
+  pointer-events:none;
+  user-select:none;
+  transition:color .3s ease, text-shadow .3s ease;
+}
+/* elliptical bloom behind the whole word */
+.sign-label::before{
+  content:'';
+  position:absolute;
+  top:50%; left:50%;
+  transform:translate(-50%,-50%) scaleX(1);
+  width:160%; height:280%;
+  background:radial-gradient(ellipse 100% 100% at center,
+    rgba(255,235,175,.00) 0%,
+    rgba(255,235,175,.00) 100%);
+  filter:blur(14px);
+  border-radius:50%;
+  z-index:-1;
+  pointer-events:none;
+  transition:background .35s ease, opacity .35s ease;
+  opacity:0;
+}
+.sign:hover .sign-label::before{
+  background:radial-gradient(ellipse 100% 100% at center,
+    rgba(255,238,185,.32) 0%,
+    rgba(250,210,130,.15) 45%,
+    transparent 80%);
+  opacity:1;
+}
+.sign:hover .sign-label{
+  color:#fff9ee;
+  text-shadow:
+    0 1px 4px rgba(12,5,1,.82),
+    0 0 14px rgba(255,230,150,.58),
+    0 0 38px rgba(245,200,100,.28),
+    0 0 65px rgba(230,175,70,.11);
+}
+/* tuned to scene-home.png (signpost on right) */
+.sign.s1{ left:65%; top:23%; width:36%; height:19%; transform:rotate(-1deg); transform-origin:50% 50%;}
+.sign.s2{ left:65%; top:37%; width:36%; height:19%; transform:rotate(3deg);}
+.sign.s3{ left:65%; top:51.75%; width:36%; height:19%; transform:rotate(3.5deg);}
+.sign.s1:hover{ transform:rotate(-1deg) scale(1.03); }
+.sign.s2:hover{ transform:rotate(3deg) scale(1.03); }
+.sign.s3:hover{ transform:rotate(3.5deg) scale(1.03); }
+
+/* ─── lantern flicker (only motion on the painting) ─── */
+.lantern{
+  position:absolute;border-radius:50%;pointer-events:none;
+  background: radial-gradient(ellipse 70% 55% at 50% 50%, rgba(255,235,195,.72) 0%, rgba(255,215,160,.38) 35%, rgba(255,200,140,.10) 62%, rgba(255,190,130,0) 75%);
+  mix-blend-mode:screen;
+}
+.lantern.flicker{animation: flicker 4.2s ease-in-out infinite}
+.lantern.f2{animation-duration:5.6s;animation-delay:-1.4s}
+@keyframes flicker {
+  0%,100%{opacity:.95;transform:scale(1)}
+  20%{opacity:1;transform:scale(1.10)}
+  35%{opacity:.75;transform:scale(.97)}
+  55%{opacity:1;transform:scale(1.08)}
+  70%{opacity:.85;transform:scale(1)}
+  85%{opacity:1;transform:scale(1.09)}
+}
+.home-lanterns .lantern.l1{ left:-3%; top:28.5%; width:13%;height:22%;}
+.home-lanterns .lantern.l2{ right:3%; top:74%; width:9%;height:16%;}
+
+/* ─── map: glowing waypoints (no boxes on hills) ─── */
+.waypoints{position:absolute;inset:0;z-index:10;pointer-events:none}
+.wp{
+  position:absolute;transform:translate(-50%,-50%);
+  width:clamp(36px, 3.2vw, 52px); height:clamp(36px, 3.2vw, 52px);
+  border-radius:50%;cursor:pointer;pointer-events:auto;
+  display:flex;align-items:center;justify-content:center;
+  color:#fff5d8;
+  font-family:'Cormorant Garamond',serif;font-weight:600;
+  font-size:clamp(15px,1.2vw,20px);
+  text-shadow: 0 1px 4px rgba(60,30,10,.7), 0 0 14px rgba(255,210,140,.7);
+  transition: transform .35s cubic-bezier(.2,.8,.2,1), text-shadow .35s;
+  background:transparent;
+}
+.wp::before{
+  content:"";position:absolute;inset:-15%;border-radius:50%;
+  box-shadow: 0 0 28px 6px rgba(255,210,140,.4);
+  opacity:.55;
+  animation: wpPulse 3.2s ease-in-out infinite;
+}
+@keyframes wpPulse{
+  0%,100%{opacity:.45;transform:scale(1)}
+  50%{opacity:.95;transform:scale(1.18)}
+}
+.wp:hover{transform:translate(-50%,-50%) scale(1.18)}
+.wp:hover::before{opacity:1}
+
+/* glassmorphism tooltip — fantasy glow */
+.wp-card{
+  position:absolute;left:50%;bottom:calc(100% + 18px);
+  transform:translateX(-50%) translateY(8px);
+  width:max-content;max-width:300px;
+  background: rgba(245,240,225,.55);
+  backdrop-filter: blur(18px) saturate(1.2);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  border:1px solid rgba(255,250,225,.45);
+  padding:16px 18px 14px;border-radius:10px;
+  box-shadow:
+    0 24px 48px -12px rgba(0,0,0,.55),
+    0 0 60px rgba(255,210,140,.18),
+    0 1px 0 rgba(255,255,255,.5) inset;
+  opacity:0;visibility:hidden;
+  transition:opacity .25s, transform .35s cubic-bezier(.2,.8,.2,1), visibility 0s linear .25s;
+  text-align:left;z-index:20;pointer-events:none;
+}
+.wp:hover .wp-card,.wp:focus-visible .wp-card{
+  opacity:1;visibility:visible;transform:translateX(-50%) translateY(0);
+  transition-delay:0s;pointer-events:auto;
+}
+.wp-card .num{display:block;font-family:ui-monospace,Menlo,monospace;font-size:11px;
+  letter-spacing:.18em;color:#a3853f;text-transform:uppercase;margin-bottom:4px}
+.wp-card h3{margin:0 0 6px;font-family:'Cormorant Garamond',serif;font-size:24px;line-height:1.05;color:#1a1a1a;font-weight:700;letter-spacing:.02em;text-shadow:none}
+.wp-card p{margin:0 0 10px;font-size:13px;color:#1e1e1e;line-height:1.5;letter-spacing:.02em;text-shadow:none}
+.wp-card .cta{display:inline-flex;align-items:center;gap:6px;font-size:12px;letter-spacing:.09em;color:var(--green);border-bottom:1px solid currentColor;padding:0 0 1px;font-weight:600;text-shadow:none}
+
+/* ─── map: text block — natural overlay, no card ─── */
+.map-text{
+  position:absolute;left:7%;top:12%;max-width:44%;z-index:10;color:var(--ink);
+  animation: rise 1400ms cubic-bezier(.2,.8,.2,1) both;
+  animation-delay:350ms;
+}
+.map-text h1{font-family:'Cormorant Garamond',serif;font-size:clamp(34px,4.0vw,70px);font-weight:600;line-height:1.02;letter-spacing:-.01em;margin:0;color:var(--ink);
+  text-shadow: 0 2px 8px rgba(0,0,0,.40), 0 4px 22px rgba(0,0,0,.22), 0 1px 0 rgba(255,250,230,.35);}
+.map-text h1 em{font-style:italic;color:var(--green);font-weight:500;display:block}
+.map-text .sub{margin-top:18px;font-size:15px;line-height:1.65;color:var(--ink-soft);max-width:36ch}
+.map-text .rule{display:flex;align-items:center;width:160px;margin:calc(18px + 0.5vh) 0 18px;}
+.map-text .rule::before,.map-text .rule::after{content:"";flex:1;height:1px;background:#1c1a17;}
+.map-text .rule span{width:7px;height:7px;background:#1c1a17;transform:rotate(45deg);flex-shrink:0;margin:0 7px;}
+
+/* Powrót — map signpost, styled like home signs */
+.map-back-sign{
+  left:6.5%;top:49.5%;width:11.5%;height:9.5%;
+  padding:0 0 28px 0;
+  transform:rotate(1deg);
+  transform-origin:center;
+}
+.map-back-sign:hover{ transform:rotate(1deg) scale(1.03); }
+.map-back-sign .sign-label{
+  letter-spacing:.08em;
+  font-size:clamp(9px,1.18vw,22.5px);
+}
+.map-back-sign:hover .sign-label{
+  color:#fff9ee;
+  text-shadow:
+    0 1px 4px rgba(12,5,1,.82),
+    0 0 14px rgba(255,230,150,.58),
+    0 0 38px rgba(245,200,100,.28),
+    0 0 65px rgba(230,175,70,.11);
+}
+.map-back-sign:hover .sign-label::before{
+  background:radial-gradient(ellipse 100% 100% at center,
+    rgba(255,238,185,.32) 0%,
+    rgba(250,210,130,.15) 45%,
+    transparent 80%);
+  opacity:1;
+}
+
+/* ─── overlay sheet (about / contact) — glass panel jak case study ─── */
+.sheet{
+  position:absolute;left:50%;top:50%;
+  transform:translate(-50%,-46%) scale(.985);
+  width:min(96vw, 1200px);max-height:88vh;
+
+  border-radius: 20px;
+
+  background: rgba(238,232,205,.82);
+
+  border: 1px solid rgba(255,255,255,.70);
+
+  box-shadow:
+    0 24px 64px -12px rgba(0,0,0,.38),
+    0 1px 0 rgba(255,255,255,.85) inset;
+
+  backdrop-filter: blur(52px) saturate(1.5) brightness(1.05);
+  -webkit-backdrop-filter: blur(52px) saturate(1.5) brightness(1.05);
+
+  z-index:60;color:#1a1a16;overflow:hidden;display:flex;flex-direction:column;
+  opacity:0;pointer-events:none;
+  transition:none;
+}
+.sheet.show{opacity:1;transform:translate(-50%,-50%) scale(1);pointer-events:auto}
+
+.sheet-inner{padding:48px 60px;overflow:auto}
+.sheet-close{
+  position:absolute;top:18px;right:22px;z-index:5;
+  width:34px;height:34px;border-radius:50%;
+  background:rgba(60,45,15,.10);
+  border:1px solid rgba(60,45,15,.20);
+  color:rgba(10,8,4,.85);
+  font-size:15px;line-height:1;
+  display:flex;align-items:center;justify-content:center;
+  transition:background 200ms,color 200ms;
+}
+.sheet-close:hover{background:rgba(60,45,15,.20);color:#0a0a0a;}
+
+.sheet h1{font-family:'Cormorant Garamond',serif;font-weight:600;font-size:clamp(40px, 4vw, 64px);line-height:1.02;letter-spacing:-.01em;margin:0 0 12px;color:var(--ink-green)}
+.sheet .eyebrow{font-family:ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:.22em;color:#a3853f;text-transform:uppercase;font-weight:600;margin:0 0 14px}
+.sheet .lede{font-size:17px;color:rgba(30,28,20,.80);line-height:1.55;max-width:62ch;margin:0 0 8px}
+.sheet h2{font-family:'Cormorant Garamond',serif;font-weight:600;font-size:28px;color:var(--green);margin:36px 0 8px;letter-spacing:-.005em}
+.sheet p{font-size:15px;color:rgba(30,28,20,.75);line-height:1.65;max-width:62ch;margin:0 0 14px}
+
+.case-meta{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px;border-top:1px solid rgba(180,150,80,.35);border-bottom:1px solid rgba(180,150,80,.35);padding:18px 0;margin:24px 0 28px}
+.case-meta dt{font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:.2em;color:#7a6a3a;text-transform:uppercase;margin:0 0 4px}
+.case-meta dd{margin:0;font-family:'Cormorant Garamond',serif;font-size:20px;color:var(--green);font-weight:500}
+
+.gallery{display:grid;grid-template-columns:repeat(2,1fr);gap:18px;margin:14px 0 24px}
+.gallery .img{aspect-ratio: 4/3;border-radius:4px;background:repeating-linear-gradient(135deg, rgba(170,140,80,.12) 0 12px, rgba(170,140,80,.04) 12px 24px), linear-gradient(180deg, #e6dabb, #d2c39a);border:1px solid var(--rule);display:flex;align-items:center;justify-content:center;font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#7a6a3a;letter-spacing:.12em;text-transform:uppercase;text-align:center;padding:14px}
+.gallery .img.tall{aspect-ratio: 3/4}
+
+.next-link{display:flex;align-items:center;justify-content:space-between;margin-top:36px;padding:22px 0 6px;border-top:1px solid rgba(180,150,80,.35)}
+.next-link .label{font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:.2em;color:#7a6a3a;text-transform:uppercase}
+.next-link .name{font-family:'Cormorant Garamond',serif;font-size:32px;color:var(--green);font-weight:600}
+.next-link button{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.next-link button:hover .name{color:var(--gold)}
+
+.about-grid{display:grid;grid-template-columns:1.3fr 1fr;gap:40px;align-items:start}
+.about-grid .photo{aspect-ratio: 4/5;border-radius:4px;background:repeating-linear-gradient(135deg, rgba(170,140,80,.12) 0 12px, rgba(170,140,80,.04) 12px 24px), linear-gradient(180deg, #e6dabb, #c7b483);border:1px solid var(--rule);display:flex;align-items:flex-end;justify-content:flex-start;padding:18px;font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#6e5e2f;letter-spacing:.12em;text-transform:uppercase}
+.toolset{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 14px}
+.toolset span{font-family:ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:.08em;padding:5px 10px;border:1px solid rgba(180,150,80,.4);border-radius:99px;color:#5b4a20;background:rgba(255,255,255,.45)}
+
+.contact-list{display:grid;grid-template-columns:1fr;gap:0;margin:24px 0 0}
+.contact-list a, .contact-list li{display:flex;align-items:baseline;justify-content:flex-start;gap:24px;padding:22px 0;border-top:1px solid rgba(100,80,30,.18);font-family:'Cormorant Garamond',serif;font-size:30px;color:var(--green);font-weight:500;transition:color .25s,padding .25s}
+.contact-list li{list-style:none}
+.contact-list a:hover{color:var(--gold);padding-left:8px}
+.contact-list .label{font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:.22em;color:#9e7530;text-transform:uppercase;font-weight:600;flex:none;width:110px}
+.contact-list a:last-of-type{border-bottom:1px solid rgba(100,80,30,.18)}
+
+.sheet-close{ color: #f3e3bf; }
+.sheet-close:hover{ color: #fff9ee; }
+
+.sheet-veil{position:absolute;inset:0;z-index:55;background:rgba(15,20,15,.55);opacity:0;transition:opacity .55s;pointer-events:none}
+.sheet-veil.show{opacity:1;pointer-events:auto}
+
+/* ═══════════════════════════════════════════════════════════
+   CASE STUDY — glassmorphism overlay
+══════════════════════════════════════════════════════════ */
+.case-study-overlay{
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(5, 10, 20, 0.28);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: caseOverlayIn 300ms ease-out both;
+}
+
+.case-study-glass-panel{
+  position: relative;
+  width: 65vw;   /* +10.8vw po lewej (1/5 z 54vw) */
+  height: 88vh;
+  border-radius: 32px;
+
+  /* Ciemny, ale nie całkowicie czarny — subtelny gradient */
+  background: linear-gradient(
+    160deg,
+    rgba(38,38,42,0.94)  0%,
+    rgba(28,28,31,0.96)  45%,
+    rgba(22,22,25,0.97)  100%
+  );
+
+  border: 1px solid rgba(255,255,255,0.42);
+
+  box-shadow:
+    /* zewnętrzny cień */
+    0 40px 100px rgba(0,0,0,0.55),
+    /* górna krawędź — mocne rozświetlenie */
+    inset 0 2px 0   rgba(255,255,255,0.72),
+    inset 0 1px 18px rgba(255,255,255,0.08),
+    /* dolna krawędź — subtelna */
+    inset 0 -1px 0  rgba(255,255,255,0.10),
+    /* lewa krawędź — mocne rozświetlenie */
+    inset 2px 0 0   rgba(255,255,255,0.65),
+    inset 1px 0 18px rgba(255,255,255,0.07),
+    /* prawa krawędź — subtelna */
+    inset -1px 0 0  rgba(255,255,255,0.10),
+    /* zewnętrzna poświata */
+    0 0 40px rgba(255,255,255,0.08),
+    /* 3D — prawa i dolna krawędź */
+     5px  5px 3px rgba(10,10,12,0.95),
+     9px  9px 5px rgba(15,15,18,0.78),
+    13px 13px 8px rgba(20,20,23,0.48);
+
+  backdrop-filter: blur(120px) saturate(120%) brightness(0.82);
+  -webkit-backdrop-filter: blur(120px) saturate(120%) brightness(0.82);
+  overflow: hidden;
+  transform-style: preserve-3d;
+  z-index: 10;
+  animation: caseGlassIn 300ms ease-out both;
+}
+
+/* Ciemniejszy środek */
+.case-study-glass-panel::before{
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    ellipse 70% 65% at 50% 52%,
+    rgba(6,6,8,0.48)  0%,
+    rgba(14,14,16,0.18) 65%,
+    transparent 100%
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+
+/* ── Postać przewodnika — nad panelem, bez blur ── */
+.case-study-character{
+  position: absolute;
+  right: -2%;
+  bottom: 4%;
+  height: 80vh;
+  width: auto;
+  z-index: 20;
+  object-fit: contain;
+  pointer-events: none;
+  /* cień pod postacią — naturalne wtopienie w scenę */
+  filter:
+    drop-shadow(0 22px 28px rgba(0,0,0,0.52))
+    drop-shadow(0  6px 10px rgba(0,0,0,0.28));
+}
+
+/* Przycisk zamknięcia */
+.case-glass-close{
+  position: absolute;
+  top: 20px;
+  right: 24px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.10);
+  border: 1px solid rgba(255,255,255,0.25);
+  color: rgba(255,255,255,0.75);
+  font-size: 15px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 200ms, color 200ms;
+  z-index: 5;
+}
+.case-glass-close:hover{
+  background: rgba(255,255,255,0.20);
+  color: #fff;
+}
+
+/* Animacje wejścia */
+@keyframes caseOverlayIn{
+  from{ opacity: 0; }
+  to  { opacity: 1; }
+}
+@keyframes caseGlassIn{
+  from{ opacity: 0; transform: translateX(-9vw) perspective(1400px) rotateY(3deg) scale(0.96); }
+  to  { opacity: 1; transform: translateX(-9vw) perspective(1400px) rotateY(3deg) scale(1);    }
+}
+
+.tweaks-panel{font-family:'Inter',sans-serif!important}
+
+/* ─── home: footer po scrollu ─── */
+
+/* Scena home rozciąga się o 50px poza viewport — tyle wystarczy żeby scroll był widoczny */
+
+.home-footer {
+  position: relative;
+  margin-top: calc(100vh + 220px);
+  height: 50px;
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  letter-spacing: .07em;
+  color: rgba(220, 215, 205, 0.85);
+  background: #1e1e1e;
+  flex-shrink: 0;
+}
+.home-footer-dot { opacity: .35; }
+
+/* ─── responsive ─── */
+@media (max-width: 900px){
+  .hero-text{top:18%;left:6%;right:6%;max-width:none}
+  .hero-text h1{font-size:48px}
+  .hero-text .sub{font-size:14px}
+  .signpost-overlay{display:none}
+  .map-hanging-sign{display:none}
+  .home-mobile-nav{display:flex !important}
+  .map-text{top:8%;max-width:none;right:6%}
+  .map-text h1{font-size:36px}
+  .case-meta{grid-template-columns:repeat(2,1fr)}
+  .gallery{grid-template-columns:1fr}
+  .about-grid{grid-template-columns:1fr}
+  .sheet-inner{padding:32px 24px}
+  .brand{top:18px;left:18px}
+  .brand .name{font-size:18px}
+  .lang{top:22px;right:18px}
+}
+
+.home-mobile-nav{display:none;position:absolute;left:6%;right:6%;bottom:8%;z-index:11;flex-direction:column;gap:10px}
+.home-mobile-nav button{text-align:left;padding:14px 18px;color:var(--ink);background:rgba(245,239,222,.85);backdrop-filter:blur(6px);border:1px solid rgba(180,150,90,.5);border-radius:6px;font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:600}
+
+
+
+/* ─── kwiaty: animowana warstwa kwiatów — prawa strona, przy drogowskazie ─── */
+.kwiaty-layer{
+  position:absolute;inset:0;
+  pointer-events:none;
+  z-index:9; /* za signpost(11) i hero-text(10), nad tłem */
+  overflow:hidden;
+}
+
+/* Wrapper animowany — obrót wokół podstawy łodygi */
+.kwiat-wrap{
+  position:absolute;
+  pointer-events:none;
+  will-change:transform;
+  transform-origin:50% 100%;
+}
+.kwiat-wrap img{
+  width:100%;
+  height:auto;
+  display:block;
+  /* mix-blend-mode: multiply usuwa białe tło PNG — biel staje się przezroczysta */
+  mix-blend-mode:multiply;
+}
+
+/* Instancja 1 — główna kępa, prawa strona przy drogowskazie */
+.kwiat-wrap.k1{
+  right:2%;
+  bottom:-2%;
+  width:22%;
+  /* przytnij prawą kępę — zostaje tylko lewa połowa obrazka */
+  clip-path:inset(0 50% 0 0);
+  animation:kwiatSway1 6.2s ease-in-out infinite;
+  animation-delay:0s;
+}
+/* Instancja 2 — ukryta */
+.kwiat-wrap.k2{
+  display:none;
+}
+/* Instancja 4 — kwiaty1 przy drogowskazie, prawy dolny róg */
+.kwiat-wrap.k4{
+  right:-3%;
+  bottom:14%;
+  width:12%;
+  clip-path:none;
+  animation:kwiatSway1 6.8s ease-in-out infinite;
+  animation-delay:-3.2s;
+}
+/* Instancja 5 — kwiaty-lewa1: wysoki prosty kwiat */
+.kwiat-wrap.k5{
+  left:0%;
+  bottom:15%;
+  width:6.8%;
+  clip-path:none;
+  animation:kwiatSway1 6.5s ease-in-out infinite;
+  animation-delay:-1.0s;
+}
+.kwiat-wrap.k5 img{
+  mix-blend-mode:multiply;
+  transform: rotate(12deg);
+  transform-origin: 50% 100%;
+}
+/* Instancja 7 — kwiaty-lewa2: obok kwiata 1 (k5) */
+.kwiat-wrap.k7{
+  left:7%;
+  bottom:12%;
+  width:4.5%;
+  clip-path:none;
+  animation:kwiatSway1 6.1s ease-in-out infinite;
+  animation-delay:-3.5s;
+}
+.kwiat-wrap.k7 img{
+  mix-blend-mode:multiply;
+}
+/* Instancja 8 — kwiaty-lewa2: dodatkowy, minimalnie większy */
+.kwiat-wrap.k8{
+  left:10.5%;
+  bottom:10.5%;
+  width:5%;
+  clip-path:none;
+  animation:kwiatSway2 6.3s ease-in-out infinite;
+  animation-delay:-0.8s;
+}
+.kwiat-wrap.k8 img{
+  mix-blend-mode:multiply;
+}
+/* k9 — kwiaty-lewa1: mniejszy, na dole */
+.kwiat-wrap.k9{
+  left:14.2%;
+  bottom:3%;
+  width:4.5%;
+  clip-path:none;
+  animation:kwiatSway1 6.0s ease-in-out infinite;
+  animation-delay:-1.8s;
+}
+.kwiat-wrap.k9 img{
+  mix-blend-mode:multiply;
+}
+/* Instancja 6 — kwiaty-lewa2: mniejszy, lekko z boku */
+.kwiat-wrap.k6{
+  left:14.3%;
+  bottom:7.2%;
+  width:5%;
+  clip-path:none;
+  animation:kwiatSway2 5.9s ease-in-out infinite;
+  animation-delay:-2.8s;
+}
+.kwiat-wrap.k6 img{
+  mix-blend-mode:multiply;
+}
+.kwiat-wrap.k10{
+  left:0.5%;
+  bottom:-4%;
+  width:7.5%;
+  clip-path:none;
+  animation:kwiatSwayK10 6.1s ease-in-out infinite;
+  animation-delay:-4.2s;
+}
+@keyframes kwiatSwayK10{
+  0%   { transform: rotate(-8deg)  translateY(0px);   }
+  22%  { transform: rotate(-11deg) translateY(-0.8px);}
+  45%  { transform: rotate(-6deg)  translateY(0px);   }
+  68%  { transform: rotate(-10deg) translateY(-0.6px);}
+  88%  { transform: rotate(-5.5deg)translateY(0.3px); }
+  100% { transform: rotate(-8deg)  translateY(0px);   }
+}
+.kwiat-wrap.k10 img{
+  mix-blend-mode:multiply;
+}
+/* Instancja 3 — kwiaty1: dwie łodyżki, wyżej i bardziej w lewo */
+.kwiat-wrap.k3{
+  right:18%;
+  bottom:4%;
+  width:14%;
+  clip-path:none;
+  animation:kwiatSway2 5.8s ease-in-out infinite;
+  animation-delay:-1.4s;
+}
+
+/* ─── Dym z komina na mapie ─── */
+.map-smoke-wrap {
+  position: absolute;
+  pointer-events: none;
+  z-index: 8;
+  transform: translate(-50%, -100%);
+}
+.smoke-puff {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(210,210,210,0.75) 0%, rgba(190,190,190,0) 70%);
+  animation: smokeRise 4s ease-out infinite;
+  animation-delay: calc(var(--i) * 0.8s);
+  transform-origin: center bottom;
+}
+@keyframes smokeRise {
+  0%   { transform: translate(0, 0)          scale(0.3);  opacity: 0;    }
+  8%   { opacity: 0.75; }
+  35%  { transform: translate(-8px,  -33px)  scale(2.2);  opacity: 0.55; }
+  65%  { transform: translate(-14px, -67px)  scale(3.8);  opacity: 0.28; }
+  100% { transform: translate(-10px, -107px) scale(5.5);  opacity: 0;    }
+}
+
+/* ─── Kwiat na stronie mapy — prawy dolny róg ─── */
+.kwiat-mapa-wrap {
+  position: absolute;
+  right: 6.5%;
+  bottom: 9.5%;
+  width: 5%;
+  pointer-events: none;
+  z-index: 10;
+  transform-origin: 50% 100%;
+  will-change: transform;
+  animation: kwiatSwayMap 5.8s ease-in-out infinite;
+  animation-delay: -2.1s;
+}
+@keyframes kwiatSwayMap {
+  0%   { transform: rotate(0deg)    translateY(0px);   }
+  18%  { transform: rotate(-4deg)   translateY(-1px);  }
+  38%  { transform: rotate(3deg)    translateY(0.5px); }
+  55%  { transform: rotate(-3.5deg) translateY(-0.8px);}
+  72%  { transform: rotate(2.5deg)  translateY(0.4px); }
+  88%  { transform: rotate(-2deg)   translateY(-0.5px);}
+  100% { transform: rotate(0deg)    translateY(0px);   }
+}
+.kwiat-mapa-2 {
+  right: 18%;
+  bottom: 11.5%;
+  animation-delay: -3.8s;
+}
+.kwiat-mapa-3 {
+  right: 0%;
+  bottom: 0.5%;
+  width: 7%;
+  animation-delay: -1.2s;
+}
+
+.kwiat-mapa-wrap img {
+  width: 100%;
+  height: auto;
+  display: block;
+  mix-blend-mode: multiply;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CHMURY — animowane niebo (tylko strefa nieba, nie foreground)
+══════════════════════════════════════════════════════════ */
+
+/*
+  sky-mask.png = wygenerowana maska nieba (Python / Canny edges).
+  Bialy = niebo widoczne, czarny = gory/foreground ukryte.
+  mask-size:cover + mask-position:center dopasowuje maske do
+  background-size:cover na .illo — identyczne skalowanie sceny.
+  overflow:hidden klipuje chmury poza viewportem (seamless loop).
+*/
+.chmury-layer{
+  position:absolute;
+  inset:0;
+  overflow:hidden;
+  pointer-events:none;
+  z-index:2;
+
+  /* ── SKY MASK: chmury widoczne WYLACZNIE w obszarze nieba ── */
+  -webkit-mask-image: url('assets/sky-mask.png');
+          mask-image: url('assets/sky-mask.png');
+  -webkit-mask-size: cover;
+          mask-size: cover;
+  -webkit-mask-position: center;
+          mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+          mask-repeat: no-repeat;
+}
+
+/*
+  Chmury startuja POZA lewym kadrem (left:-35%) i dryfuja w prawo.
+  translateX(160vw) = odlot calkowicie poza prawy kadr → reset niewidoczny.
+  Ruch lewo→prawo imituje naturalny wiatr.
+*/
+.chmura-wrap{
+  position:absolute;
+  left:-35%;            /* startuje poza lewa krawedzia viewportu */
+  will-change:transform;
+}
+.chmura-wrap img{
+  display:block;
+  width:100%;
+  height:auto;
+  /* screen rozjasnia niebo tam gdzie jest chmura — naturalny blend */
+  mix-blend-mode:screen;
+  user-select:none;
+}
+
+/* ── Keyframe: lewo → prawo ── */
+@keyframes chmuraDrift{
+  from{ transform:translateX(0); }
+  to  { transform:translateX(160vw); }
+}
+
+/* ── Warstwa 1: chmura1.png — główna, wysoko, ultra powolna ── */
+.chmura-wrap.ch2{
+  top:-2%;
+  width:24%;
+  opacity:0.50;
+  animation: chmuraDrift 150s linear infinite;
+  animation-delay:-20s;
+}
+
+/* ── Warstwa 2: chmura2.png — mniejsza, lekko niżej ── */
+.chmura-wrap.ch3{
+  top:2%;
+  width:17%;
+  opacity:0.50;
+  animation: chmuraDrift 120s linear infinite;
+  animation-delay:-75s;
+}
+
+/* Wylacz animacje gdy uzytkownik preferuje brak ruchu */
+@media(prefers-reduced-motion:reduce){
+  .chmura-wrap{ animation:none !important; }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   HAIR SHIMMER OVERLAY
+   Postać jest w pełni statyczna. Overlay nakłada się TYLKO
+   na obszar włosów (lewy i prawy bok głowy) przez mask-image.
+   blend-mode soft-light + animacja background-position =
+   efekt lekko łapiącego światło pasma włosów. Zero warp/wobble.
+══════════════════════════════════════════════════════════ */
+.hair-wind-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+
+  /*
+   * Gradient świetlny — przesuwający się ukośny pas blasku.
+   * background-size 300% pozwala na płynny ruch bez artefaktów.
+   */
+  background: linear-gradient(
+    118deg,
+    transparent          20%,
+    rgba(255,242,200,.50) 38%,
+    rgba(255,255,225,.70) 50%,
+    rgba(255,242,200,.50) 62%,
+    transparent          80%
+  );
+  background-size: 280% 280%;
+
+  /*
+   * MASKA — dwie miękkie elipsy: lewa i prawa strona włosów.
+   * Pozycje obliczone dla object-fit:contain (1920×1280),
+   * object-position:73% 100%, translateY(17%) scale(1.08).
+   * Dostosuj % jeśli shimmer wychodzi poza włosy.
+   *
+   * at X% Y%:
+   *   lewa strona włosów  ≈ 48% 30%
+   *   prawa strona włosów ≈ 57% 40%  (dłuższe, opadające)
+   */
+  -webkit-mask-image:
+    radial-gradient(ellipse 11% 20% at 48% 30%, black 0%, transparent 85%),
+    radial-gradient(ellipse  8% 24% at 57% 41%, black 0%, transparent 85%);
+  -webkit-mask-composite: source-over;
+  mask-image:
+    radial-gradient(ellipse 11% 20% at 48% 30%, black 0%, transparent 85%),
+    radial-gradient(ellipse  8% 24% at 57% 41%, black 0%, transparent 85%);
+  mask-composite: add;
+
+  mix-blend-mode: soft-light;
+  opacity: 0.14;
+
+  animation: hairShimmer 7s ease-in-out infinite;
+}
+
+@keyframes hairShimmer {
+  0%,  100% { background-position: 15% 35%; }
+  50%        { background-position: 85% 65%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hair-wind-overlay { animation: none; }
+}
+
+/* Organiczne kołysanie — mocniejszy wiatr ~4-5deg */
+@keyframes kwiatSway1{
+  0%   { transform: rotate(0deg)     translateY(0px);   }
+  22%  { transform: rotate(-4.2deg)  translateY(-1.2px);}
+  45%  { transform: rotate(1.8deg)   translateY(0px);   }
+  64%  { transform: rotate(-3.2deg)  translateY(-0.8px);}
+  82%  { transform: rotate(3.5deg)   translateY(0.5px); }
+  100% { transform: rotate(0deg)     translateY(0px);   }
+}
+@keyframes kwiatSway2{
+  0%   { transform: rotate(0deg)     translateY(0px);   }
+  25%  { transform: rotate(3.8deg)   translateY(-0.9px);}
+  50%  { transform: rotate(-2.0deg)  translateY(0.3px); }
+  70%  { transform: rotate(3.2deg)   translateY(-0.7px);}
+  88%  { transform: rotate(-4.0deg)  translateY(0.5px); }
+  100% { transform: rotate(0deg)     translateY(0px);   }
+}
+
+
+/* ─── ambient: birds + lanterns only ─── */
+.amb{position:absolute;inset:0;pointer-events:none;z-index:6;overflow:hidden}
+
+/* Tiny distant birds — sporadic, cinematic */
+.amb .bird{
+  position:absolute;width:22px;height:10px;
+  background:transparent;
+  opacity:0;
+  animation:ambBird linear infinite;
+  will-change:transform,opacity;
+}
+.amb .bird::before,.amb .bird::after{
+  content:"";position:absolute;top:50%;left:50%;
+  width:7px;height:2px;
+  background:rgba(20,20,20,.85);
+  border-radius:4px 2px 0 2px;
+  animation:.5s ease-in-out infinite alternate;
+  animation-delay: var(--wdelay, 0s);
+}
+/* lewe skrzydło — pivot na prawym końcu (= centrum ptaka) */
+.amb .bird::before{
+  transform-origin:100% 50%;
+  animation-name:birdWingL;
+}
+/* prawe skrzydło — pivot na lewym końcu (= centrum ptaka) */
+.amb .bird::after{
+  transform-origin:0% 50%;
+  animation-name:birdWingR;
+}
+@keyframes birdWingL{
+  0%  {transform:translate(-100%,-50%) rotate(-12deg)}  /* skrzydło dół */
+  100%{transform:translate(-100%,-50%) rotate(-52deg)}  /* skrzydło góra */
+}
+@keyframes birdWingR{
+  0%  {transform:translate(0,-50%) rotate(12deg)}
+  100%{transform:translate(0,-50%) rotate(52deg)}
+}
+@keyframes ambBird{
+  0%  {transform:translate3d(-6vw,0,0);opacity:0}
+  6%  {opacity:.35}
+  94% {opacity:.28}
+  100%{transform:translate3d(110vw,-2vh,0);opacity:0}
+}
+
+/* no-anim mode */
+.world.no-anim *,
+.world.no-anim *::before,
+.world.no-anim *::after{animation:none !important}
+
+/* ─── home → map: natychmiastowe ukrycie UI home przed burn reveal ─── */
+.world.is-transitioning .hero-text,
+.world.is-transitioning .signpost-overlay,
+.world.is-transitioning .home-mobile-nav,
+.world.is-transitioning .home-lanterns,
+.world.is-transitioning .amb {
+  opacity: 0 !important;
+  transition: opacity 150ms ease-out !important;
+  pointer-events: none !important;
+}
+.world.is-transitioning .chrome {
+  opacity: 0 !important;
+  transition: opacity 150ms ease-out !important;
+  pointer-events: none !important;
+}
+/* Wycisz wszystkie CSS transition scen podczas burn reveal —
+   zapobiega "fog + jump" z .scene[data-pos] transform/filter przy rerenderze */
+.world.is-transitioning .scene {
+  transition: none !important;
+  animation: none !important;
+}
+
+
